@@ -27,5 +27,22 @@ class NotificationIn(BaseModel):
 class NotificationOut(NotificationIn):
     notification_id: int
 
-    class Config:
-        orm_mode = True
+class Config:
+     orm_mode = True
+
+
+class LoginCredentials(BaseModel):
+    username: str
+    password: str
+
+
+class SuccessResponse(BaseModel):
+    success: bool
+
+
+class SecretResponse(BaseModel):
+    secret: str
+
+
+class UserPublicDetails(BaseModel):
+    username: str

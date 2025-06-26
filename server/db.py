@@ -1,3 +1,4 @@
+from fastapi import Request
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from schema import FoodIn, FoodOut, FoodUpdate, NotificationOut
@@ -5,6 +6,7 @@ from models import DBFood, DBNotification
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from dotenv import load_dotenv
+from schema import UserPublicDetails
 import os
 
 load_dotenv()
@@ -139,3 +141,99 @@ def get_notifications() -> list[NotificationOut]:
         ))
     db.close()
     return notifications
+
+
+def validate_username_password(username: str, password: str) -> str | None:
+    with SessionLocal() as db:
+        account = (
+            db.query(DBAccount).filter(DBAccount.username == username).first()
+        )
+        if not account:
+            return None
+        valid_credentials = bcrypt.checkpw(
+            password.encode(), account.hashed_password.encode()
+        )
+        if not valid_credentials:
+            return None
+        session_token = token_urlsafe()
+        account.session_token = session_token
+        expires = datetime.now() + timedelta(minutes=SESSION_LIFE_MINUTES)
+        account.session_expires_at = expires
+        db.commit()
+        return session_token
+
+
+def validate_session(username: str, session_token: str) -> bool:
+    with SessionLocal() as db:
+        account = (
+            db.query(DBAccount)
+            .filter(
+                DBAccount.username == username,
+                DBAccount.session_token == session_token,
+            )
+            .first()
+        )
+        if not account:
+            return False
+        if datetime.now() >= account.session_expires_at:
+            return False
+        expires = datetime.now() + timedelta(minutes=SESSION_LIFE_MINUTES)
+        account.session_expires_at = expires
+        db.commit()
+        return True
+
+
+def invalidate_session(username: str, session_token: str) -> None:
+    with SessionLocal() as db:
+        account = (
+            db.query(DBAccount)
+            .filter(
+                DBAccount.username == username,
+                DBAccount.session_token == session_token,
+            )
+            .first()
+        )
+        if not account:
+            return
+        account.session_token = f"expired-{token_urlsafe()}"
+        db.commit()
+
+
+def create_user_account(username: str, password: str) -> bool:
+    with SessionLocal() as db:
+        if db.query(DBAccount).filter(DBAccount.username == username).first():
+            return False
+        hashed_password = bcrypt.hashpw(
+            password.encode(), bcrypt.gensalt()
+        ).decode()
+        account = DBAccount(
+            username=username,
+            hashed_password=hashed_password,
+            session_token=None,
+            session_expires_at=None,
+        )
+        db.add(account)
+        db.commit()
+        return True
+
+
+def get_user_public_details(username: str):
+    with SessionLocal() as db:
+        account = (
+            db.query(DBAccount).filter(DBAccount.username == username).first()
+        )
+        if not account:
+            return None
+        return UserPublicDetails(username=account.username)
+
+
+def get_auth_user(request: Request):
+    username = request.session.get("username")
+    if not username and not isinstance(username, str):
+        raise HTTPException(status_code=401)
+    session_token = request.session.get("session_token")
+    if not session_token and not isinstance(session_token, str):
+        raise HTTPException(status_code=401)
+    if not validate_session(username, session_token):
+        raise HTTPException(status_code=403)
+    return True
