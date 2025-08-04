@@ -7,25 +7,30 @@ import { faTrashCan } from "@fortawesome/free-solid-svg-icons";
 export default function RecipeCard({ recipe, showTrashInsteadOfHeart }) {
   const { selectedFavorites, toggleFavorite, deleteFavorite } = useFavorites();
   const isSelected = selectedFavorites.some(
-    (fav_recipe) => fav_recipe.id === recipe.id
+    (fav) =>
+      fav.recipe_id === recipe.recipe_id ||
+      fav.recipe_id === recipe.id?.toString()
   );
 
   const handleClick = () => {
     if (showTrashInsteadOfHeart) {
-      deleteFavorite(recipe.id);
+      deleteFavorite(recipe.recipe_id || recipe.id?.toString());
     } else {
       toggleFavorite(recipe);
     }
   };
 
+  const imageSrc = recipe.image || recipe.image_url;
+  const sourceUrl = recipe.source_url || recipe.sourceUrl || null;
+
   return (
     <div className="recipe-card">
       <h3 className="recipe-title">{recipe.title}</h3>
-      {recipe.image && (
-        <img src={recipe.image} alt={recipe.title} className="recipe-image" />
+      {imageSrc && (
+        <img src={imageSrc} alt={recipe.title} className="recipe-image" />
       )}
       <a
-        href={recipe.sourceUrl}
+        href={sourceUrl}
         target="_blank"
         rel="noopener noreferrer"
         className="recipe-link"

@@ -1,89 +1,136 @@
-import { Box } from "@mantine/core";
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
 import WasteNotLogo from "../assets/WasteNotLogo.png";
-import classes from "./Header.module.css";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faBell } from "@fortawesome/free-solid-svg-icons";
-import { faHeart } from "@fortawesome/free-solid-svg-icons";
-import { useNotifications } from "../context/NotificationsContext"
-import compostLogo from "../assets/compostLogo.PNG";
+import { faBars, faBell, faHeart } from "@fortawesome/free-solid-svg-icons";
+import { useNotifications } from "../context/NotificationsContext";
+import { useUser } from "../context/UserProvider";
+import classes from "./Header.module.css";
 
 export default function SimpleHeader() {
-    const [isOpen, setIsOpen] = useState(false);
-    const dropdownRef = useRef(null);
-    const { notifications, fetchNotifications } = useNotifications();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const dropdownRef = useRef(null);
+  const { notifications, fetchNotifications } = useNotifications();
+  const { user } = useUser();
+  const [householdName, setHouseholdName] = useState("");
 
-    useEffect(() => {
-        fetchNotifications();
-    }, []);
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setNotifOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
-    useEffect(() => {
-        const handleClickOutside = (e) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-                setIsOpen(false);
-            }
-        };
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => {
-            document.removeEventListener("mousedown", handleClickOutside);
-        };
-    }, []);
+  useEffect(() => {
+    const fetchHousehold = async () => {
+      try {
+        const apiHost = import.meta.env.VITE_API_HOST;
+        const response = await fetch(`${apiHost}/api/households/current`, {
+          credentials: "include",
+        });
+        if (!response.ok) throw new Error("Could not fetch household");
 
-    const toggleOpen = () => {
-        setIsOpen(!isOpen);
+        const data = await response.json();
+        setHouseholdName(data.name);
+      } catch (err) {
+        console.error("Error fetching household:", err);
+      }
     };
 
-    return (
-        <Box>
-            <header className={classes.header}>
-                <div className={classes.inner}>
-                    <div className={classes.leftSection}>
-                        <Link to="/">
-                            <img src={WasteNotLogo} alt="WasteNot Logo" className={classes.logo} />
-                        </Link>
-                        <span className={classes.logoText}>WasteNot</span>
-                    </div>
+    fetchNotifications();
+    fetchHousehold();
+  }, []);
 
-                    <div className="right-section">
-                        <div className="icon-tooltip-wrapper">
-                            <Link to="/Compost" className="compost-link">
-                                <img src={compostLogo} alt="Compost Link" className="compost-logo" />
-                                <span className="tooltip-text">Compost Locations</span>
-                            </Link>
-                        </div>
-                        <div className="fav-wrapper icon-tooltip-wrapper">
-                            <Link to="/Favorites" className="favorite-link">
-                                <FontAwesomeIcon icon={faHeart} style={{ color: "#eb6424", height: "25px" }} />
-                                <span className="tooltip-text">Favorites</span>
-                            </Link>
-                        </div>
 
-                        <div className="dropdown-wrapper" ref={dropdownRef}>
-                            <div className="dropdown-button" onClick={toggleOpen}>
-                                {notifications.length > 0 && (
-                                    <span className="notification">({notifications.length})</span>
-                                )}
-                                <FontAwesomeIcon icon={faBell} style={{ height: "25px" }} />
-                                {isOpen && (
-                                    <div className="dropdown">
-                                        <h2>Notifications</h2>
-                                        {notifications.length > 0 ? (
-                                            <ul>
-                                                {notifications.map((notification) => (
-                                                    <li key={notification.notification_id}>{notification.message}</li>
-                                                ))}
-                                            </ul>
-                                        ) : (
-                                            <p>Nothing expiring yet!</p>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </header>
-        </Box>
-    );
+  return (
+    <header className={classes.header}>
+      <div className={classes.inner}>
+        <div className={classes.leftSection}>
+          <Link to="/Home">
+            <img src={WasteNotLogo} alt="Logo" className={classes.logo} />
+          </Link>
+          <span className={classes.logoText}>WasteNot</span>
+        </div>
+
+        <div className={classes.rightSection}>
+          {user && (
+            <div className={classes.userInfo}>
+              <div className={classes.welcomeMessage}>
+                Welcome, <strong>{user.username}</strong>
+              </div>
+              <Link to="/logout" className={classes.logOut}>
+                Logout
+              </Link>
+            </div>
+          )}
+
+          <div className={classes.notifications} ref={dropdownRef}>
+            <div
+              className={classes.dropdownButton}
+              onClick={() => setNotifOpen((prev) => !prev)}
+            >
+              {notifications.length > 0 && (
+                <span className={classes.notification}>
+                  ({notifications.length})
+                </span>
+              )}
+              <FontAwesomeIcon icon={faBell} />
+            </div>
+
+            {notifOpen && (
+              <div className={classes.dropdown}>
+                <h4>Notifications</h4>
+                {notifications.length > 0 ? (
+                  <ul>
+                    {notifications.map((n) => (
+                      <li key={n.notification_id}>{n.message}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>Nothing expiring yet!</p>
+                )}
+              </div>
+            )}
+          </div>
+
+          <button
+            className={classes.hamburger}
+            onClick={() => setMenuOpen((prev) => !prev)}
+          >
+            <FontAwesomeIcon icon={faBars} />
+          </button>
+        </div>
+
+
+      </div>
+
+      {menuOpen && (
+        <nav className={classes.mobileMenu}>
+          {user && (
+            <div className={classes.welcomeHousehold}>
+              <p>
+                Welcome, <strong>{user.username}</strong>
+              </p>
+              {householdName && (
+                <p>
+                  You are in <strong>{householdName}</strong>'s household
+                </p>
+              )}
+              <Link to="/logout" className={classes.mobileLogout}>
+                Logout
+              </Link>
+            </div>
+          )}
+          <Link to="/Home" className={classes.menuItem}>Home</Link>
+          <Link to="/Favorites" className={classes.menuItem}>Favorites</Link>
+          <Link to="/Compost" className={classes.menuItem}>Compost Locations</Link>
+        </nav>
+      )
+      }
+    </header >
+  );
 }

@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import RecipeCarousel from "./RecipeCarousel";
-import SimpleHeader from "./Header";
 import { useIngredients } from "../context/RecipesContext";
 
 export default function Recipe() {
@@ -10,9 +9,12 @@ export default function Recipe() {
   const { selectedIngredient } = useIngredients();
   const apiHost = import.meta.env.VITE_API_HOST;
 
-
-
   useEffect(() => {
+    if (selectedIngredient.length === 0) {
+      setRecipes([]);
+      setError("no-ingredients");
+      return;
+    }
 
     const getRecipe = async () => {
       try {
@@ -42,11 +44,18 @@ export default function Recipe() {
 
   return (
     <div className="page-content">
-      <SimpleHeader />
       <div className="carousel-wrapper">
         <h1>Your WasteNot Menu</h1>
         {loading && <p>Loading...</p>}
-        {error && <p>Oops! We couldn't load recipes. Try selecting a few ingredients first.</p>}
+        {error === "no-ingredients" && (
+          <p>Please select a few ingredients to get recipe suggestions!</p>
+        )}
+        {error && error != "no-ingredients" && (
+          <p>
+            Oops! We couldn't load recipes. Please select a few ingredients and
+            try again.
+          </p>
+        )}
         {!loading && !error && <RecipeCarousel recipes={recipes} />}
       </div>
     </div>

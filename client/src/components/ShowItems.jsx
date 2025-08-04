@@ -8,7 +8,7 @@ import { faEdit } from "@fortawesome/free-solid-svg-icons";
 import { useIngredients } from "../context/RecipesContext";
 import { useNotifications } from "../context/NotificationsContext";
 
-export default function ShowItems() {
+export default function ShowItems({ refreshTrigger }) {
   const [data, setData] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -55,12 +55,10 @@ export default function ShowItems() {
 
   async function deleteItem(id) {
     try {
-      const response = await fetch(
-        `${apiHost}/api/food-items/${id}`,
-        {
-          method: "DELETE",
-        }
-      );
+      const response = await fetch(`${apiHost}/api/food-items/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
 
       if (!response.ok) throw new Error("Failed to delete food item");
 
@@ -69,7 +67,6 @@ export default function ShowItems() {
       setData(newData);
 
       await fetchNotifications();
-
     } catch (error) {
       console.error("Error deleting food item", error);
     }
@@ -78,14 +75,20 @@ export default function ShowItems() {
   const fetchData = async () => {
     try {
       setIsLoading(true);
-      const res = await fetch(`${apiHost}/api/food-items`);
+      const res = await fetch(`${apiHost}/api/food-items`, {
+        method: "GET",
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        throw new Error(`Error: ${res.status}`);
+      }
+
       const json = await res.json();
       setData(json);
-
     } catch (error) {
       setError(error);
       console.error("Error fetching items", error);
-
     } finally {
       setIsLoading(false);
     }
@@ -94,7 +97,6 @@ export default function ShowItems() {
   const selectedIngredients = (itemName, isChecked) => {
     if (isChecked) {
       return setSelectedIngredient([...selectedIngredient, itemName]);
-
     } else {
       return setSelectedIngredient(
         selectedIngredient.filter((name) => name !== itemName)
@@ -104,10 +106,12 @@ export default function ShowItems() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [refreshTrigger]);
 
   if (error) {
-    return <p>Something went wrong. Please refresh.</p>;
+    return (
+      <p>Create a household to see your food inventory. Please refresh.</p>
+    );
   }
 
   if (isLoading) {
@@ -134,7 +138,9 @@ export default function ShowItems() {
               item.category_id === 1 ? (
                 <tr
                   key={item.id}
-                  className={isExpired(item.expiration_date) ? "row-expired" : ""}
+                  className={
+                    isExpired(item.expiration_date) ? "row-expired" : ""
+                  }
                 >
                   <td>
                     <input
@@ -180,7 +186,9 @@ export default function ShowItems() {
               item.category_id === 2 ? (
                 <tr
                   key={item.id}
-                  className={isExpired(item.expiration_date) ? "row-expired" : ""}
+                  className={
+                    isExpired(item.expiration_date) ? "row-expired" : ""
+                  }
                 >
                   <td>
                     <input

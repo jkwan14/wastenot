@@ -8,18 +8,52 @@ VALUES ('pantry'),
 ('fridge')
 ON CONFLICT (category_name) DO NOTHING;
 
-CREATE TABLE IF NOT EXISTS food_items (
+
+CREATE TABLE IF NOT EXISTS account (
     id SERIAL PRIMARY KEY,
-    name VARCHAR(100),
-    expiration_date DATE,
-    category_id INT NOT NULL,
-    FOREIGN KEY (category_id) REFERENCES category(category_id) ON DELETE CASCADE
+    username VARCHAR(255) UNIQUE NOT NULL,
+    hashed_password TEXT NOT NULL,
+    session_token TEXT UNIQUE,
+    session_expires_at TIMESTAMP
 );
 
-INSERT INTO food_items (name, expiration_date, category_id)
-VALUES ('milk', '2025-05-22', 2),
-('pasta', '2025-06-01', 1),
-('broccoli', '2025-05-25', 2);
+INSERT INTO account (username, hashed_password)
+VALUES
+    ('bob', '$2b$12$W7bE7obZRr/OPC6BcijR6OmDmYibJLxXRX4JqKzPK5sLj92Hd2ZA2'),
+    ('admin', '$2b$12$240eLIQqLhdMtSfhpQro2ON0LbCj9DiQSRyDzcU9NcGRrHXdeGrkS');
+-- passwords are:
+-- bob: bobbers
+-- admin: admin
+
+CREATE TABLE IF NOT EXISTS household (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(50) NOT NULL,
+    invite_id VARCHAR UNIQUE NOT NULL,
+    admin_user_id INT NOT NULL,
+    FOREIGN KEY (admin_user_id) REFERENCES account(id)
+
+);
+
+CREATE TABLE IF NOT EXISTS user_household (
+    id SERIAL PRIMARY KEY,
+    pending BOOLEAN DEFAULT TRUE,
+    user_id INT UNIQUE NOT NULL,
+    household_id INT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES account(id) ON DELETE CASCADE,
+    FOREIGN KEY (household_id) REFERENCES household(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS food_items (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    expiration_date DATE NOT NULL,
+    added_by_id INT NOT NULL,
+    category_id INT NOT NULL,
+    household_id INT NOT NULL,
+    FOREIGN KEY (added_by_id) REFERENCES account(id),
+    FOREIGN KEY (category_id) REFERENCES category(category_id),
+    FOREIGN KEY (household_id) REFERENCES household(id) ON DELETE CASCADE
+);
 
 
 CREATE TABLE IF NOT EXISTS notifications (
@@ -28,4 +62,14 @@ CREATE TABLE IF NOT EXISTS notifications (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     food_id INT NOT NULL UNIQUE,
     FOREIGN KEY (food_id) REFERENCES food_items(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS favorite_recipes (
+    id SERIAL PRIMARY KEY,
+    title TEXT NOT NULL,
+    image_url TEXT,
+    user_id INT NOT NULL,
+    recipe_id TEXT NOT NULL, --made this text in case we change our API and this ends up not just being an integer
+    source_url TEXT,
+    FOREIGN KEY (user_id) REFERENCES account(id) ON DELETE CASCADE
 );
